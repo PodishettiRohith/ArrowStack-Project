@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Expense & Budget Manager</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { text-align: center; color: #2c3e50; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .progress-bar-bg { background: #e0e0e0; border-radius: 20px; height: 20px; width: 100%; overflow: hidden; margin-top: 10px; }
+        .progress-bar-fill { height: 100%; transition: width 0.3s ease; }
+        .fill-green { background: #2ecc71; }
+        .fill-yellow { background: #f1c40f; }
+        .fill-red { background: #e74c3c; }
+        form input, form select, form button { padding: 10px; margin-top: 5px; width: 100%; border: 1px solid #ccc; border-radius: 4px; }
+        form button { background: #3498db; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        form button:hover { background: #2980b9; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; }
+        .delete-btn { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; width: auto; margin: 0; }
+        .flash { padding: 10px; border-radius: 4px; margin-bottom: 15px; }
+        .flash-success { background: #d4edda; color: #155724; }
+        .flash-error { background: #f8d7da; color: #721c24; }
+        .flash-info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💰 Personal Expense & Budget Manager</h1>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        <div class="card">
+            <h2>Monthly Budget Overview</h2>
+            <div class="grid">
+                <div>
+                    <p><strong>Monthly Limit:</strong> ${{ "%.2f"|format(monthly_limit) }}</p>
+                    <p><strong>Total Spent:</strong> ${{ "%.2f"|format(total_spent) }}</p>
+                    <p><strong>Remaining:</strong> ${{ "%.2f"|format(remaining_budget) }}</p>
+                </div>
+                <div>
+                    <form action="/update-budget" method="POST">
+                        <label for="monthly_limit">Update Budget Limit ($):</label>
+                        <input type="number" step="0.01" name="monthly_limit" placeholder="e.g. 1500.00" required>
+                        <button type="submit">Update Budget</button>
+                    </form>
+                </div>
+            </div>
+            <p style="margin-bottom: 5px; font-weight: bold;">Budget Used: {{ spent_percentage }}%</p>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill {% if spent_percentage < 70 %}fill-green{% elif spent_percentage < 90 %}fill-yellow{% else %}fill-red{% endif %}" style="width: {{ spent_percentage }}%;"></div>
+            </div>
+        </div>
+        <div class="grid">
+            <div class="card">
+                <h3>Add New Expense</h3>
+                <form action="/add-expense" method="POST">
+                    <label>Title</label>
+                    <input type="text" name="title" placeholder="Grocery shopping" required>
+                    <label>Amount ($)</label>
+                    <input type="number" step="0.01" name="amount" placeholder="45.50" required>
+                    <label>Category</label>
+                    <select name="category" required>
+                        <option value="Food & Dining">Food & Dining</option>
+                        <option value="Rent & Utilities">Rent & Utilities</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Transportation">Transportation</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Other">Other</option>
+                    </select>
+                    <label>Date</label>
+                    <input type="date" name="date">
+                    <button type="submit">Add Expense</button>
+                </form>
+            </div>
+            <div class="card">
+                <h3>Spending by Category</h3>
+                {% if category_totals %}
+                    <ul>
+                        {% for cat, amt in category_totals.items() %}
+                            <li><strong>{{ cat }}:</strong> ${{ "%.2f"|format(amt) }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p style="color: #777;">No expenses recorded yet.</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card">
+            <h3>Recent Expenses</h3>
+            {% if expenses %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Amount</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in expenses %}
+                            <tr>
+                                <td>{{ e.date.strftime('%Y-%m-%d') }}</td>
+                                <td>{{ e.title }}</td>
+                                <td>{{ e.category }}</td>
+                                <td>${{ "%.2f"|format(e.amount) }}</td>
+                                <td>
+                                    <form action="/delete-expense/{{ e.id }}" method="POST" style="display:inline;">
+                                        <button type="submit" class="delete-btn">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color: #777;">No expenses found. Add your first expense above!</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
